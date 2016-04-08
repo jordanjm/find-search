@@ -1,0 +1,183 @@
+#! /usr/bin/perl
+use strict;
+use warnings;
+use File::Find;
+use File::Basename;
+use Getopt::Long qw(GetOptions);
+use Term::ANSIColor;
+
+#Copyright (C) 2016 Jordan McGilvray
+
+#This program is free software; you can redistribute it and/or
+#modify it under the terms of the GNU General Public License
+#as published by the Free Software Foundation; either version 2
+#of the License, or (at your option) any later version.
+
+#This program is distributed in the hope that it will be useful,
+#but WITHOUT ANY WARRANTY; without even the implied warranty of
+#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#GNU General Public License for more details.
+
+#You should have received a copy of the GNU General Public License
+#along with this program; if not, write to the Free Software
+#Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+# Read in and process all of the variables for the sscript.  Providing Default values for them if needed.
+sub readInVariables
+{
+	#Declare Variables for Flags
+	my $help = '';
+	my $inFileName = 'error_log';
+	my $inPath;
+	#Check if the HOME Environment Variable exists to use it as a default value
+	if (exists $ENV{HOME} && defined $ENV{HOME})
+	{
+		$inPath = $ENV{HOME};
+	}
+	my $inPattern;
+	#Generate a default value for $inPattern Based On the Month and Year.
+	my @time = localtime;
+	my $year = $time[5] += 1900;
+	my $monthNumber = $time[4]+1;
+	my $month ='';
+	if($monthNumber == 1) { $month = "Jan" };
+	if($monthNumber == 2) { $month = "Feb" };
+        if($monthNumber == 3) { $month = "Mar" };
+        if($monthNumber == 4) { $month = "Apr" };
+        if($monthNumber == 5) { $month = "May" };
+        if($monthNumber == 6) { $month = "Jun" };
+        if($monthNumber == 7) { $month = "Jul" };
+        if($monthNumber == 8) { $month = "Aug" };
+        if($monthNumber == 9) { $month = "Sep" };
+        if($monthNumber == 10) { $month = "Oct" };
+        if($monthNumber == 11) { $month = "Nov" };
+        if($monthNumber == 12) { $month = "Dec" };
+	$inPattern = "$month-$year";
+	#Take in Options for Flags overwriting default Values
+	GetOptions(
+		'filename|name|f=s'			=> \$inFileName,
+		'path|dir|directory|p=s'		=> \$inPath,
+		'pattern|search|s=s'			=> \$inPattern,	
+		'help|h'				=> \$help,
+	) or die "Usage: $0 --filename NAME\n";
+	#Help screen, displayed when the -h flag is sent.  The -h flag should be used alone.
+	if ( $help )
+	{
+
+
+		print "\033[2J";    #clear the screen
+		print "\033[0;0H"; #jump to 0,0
+		print color('reset');
+		print color('cyan');
+		print "\nfindandsearch 1.0 Last Modified April 1, 2016\n";
+		print color('reset');
+		print color('red');
+		print "usage: perl <(curl -s jmcgilvray.bluehoststaff.com/tools/findandsearch) [args]\n";
+		print "export HISTFILE=/dev/null ; can be used before the command.\n\n";
+		print color('reset');
+		print color('green');
+		print "This program will take in a filename, path, and search pattern.\n\n";
+		print color('reset');
+		print color('magenta');
+		print "The default filename is error_log.\n";
+		print "The default directory is the user's home directory\n";
+		print "The default path is the current month and year in the MMM-YYYY format\n\n";
+		print color('reset');
+		print color('bold yellow');
+		print "Arguments\n";
+		print color('reset');
+		print color('blue');
+		print "\tInput the Filename\n\t\t-filename\n\t\t-name\n\t\t-f\n";
+		print color('reset');
+		print color('yellow');
+		print "\tWhat Directory to Search In\n\t\t-path\n\t\t-dir\n\t\t-directory\n\t\t-p\n";
+		print color('reset');
+		print color('white');
+		print "\tPattern to Look For\n\t\t-pattern\n\t\t-search\n\t\t-s\n\n";
+		print color('reset');
+		exit;
+	}
+	#Check That the path exists and that it is a directory.
+	#First check that it exists
+	#Then Check that it is a directory
+	#Kill the program if it does not exist or if it is not a directory.
+	my $pathFlag = 0;
+	if( -e $inPath)
+	{
+		$pathFlag++;
+	}
+	if( -d $inPath)
+	{	
+		$pathFlag++;
+	}
+	if($pathFlag == 0 )
+	{
+		die "Path Does Not Exist.\n";
+	}
+	if($pathFlag == 1 )
+	{
+		die "Is a File.\n";
+	}
+	#Bundle up all of the values and return them to the main program in an array.
+	my @vIn = ($inFileName, $inPath, $inPattern);
+	return @vIn; 
+}
+
+#This subroutine takes the filename and starting directory and searches for all files with the name in the path.
+sub searchForFile
+{
+	my @inputVariables = @_;
+	my $path='';
+	my $filename='';
+	#Declare @files to hold the wanted files.  Then use find to capture them as the filetree starting in the desired directory is traversed.
+	#$inputVariables[0] is the filename, and $inputVariables[1] is the path to search.
+	#The if statement uses a Regex to identify the filename.  This means that there may be files not exactly wanted in the results.  
+	my @files;
+	find( { wanted => sub {my $fileName = basename($_); if ($fileName eq "$inputVariables[0]"){push @files, $_} }, no_chdir => 1 }, $inputVariables[1]);
+	return @files;
+}
+
+#This is where the files which match the 
+sub searchFiles
+{
+	my $regex = shift @_;
+	my @fileList = @_;
+	my @linesToPrint;
+	foreach (@fileList)
+	{
+		push(@linesToPrint,$_);
+		open (my $fileHandle,$_)
+			or die "Could not open file.\n";
+		while (my $row = <$fileHandle>)
+		{
+			chomp $row;
+			if (index ($row, $regex) != -1)
+			{
+				push(@linesToPrint,$row);
+			}
+		}
+	}
+	return @linesToPrint;
+}
+
+#This is where the results are outputted.
+sub outputResults
+{
+	my @linesToPrint = @_;
+	foreach (@linesToPrint)
+	{
+		print "$_\n";
+	}
+}
+
+#Main Area its not needed, but I like to use a main subroutine.
+sub main
+{
+	my @varIn = readInVariables();
+	my @listOfLocations = searchForFile(@varIn);
+	my @linesToPrint = searchFiles($varIn[2], @listOfLocations);
+	outputResults (@linesToPrint);
+}
+
+#Running the program
+main ();
