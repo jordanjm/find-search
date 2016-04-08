@@ -1,2 +1,15 @@
-# find-search
-Find Files based on filename, and search each line for a pattern
+#findsearch
+
+##NAME
+          findsearch - find and search
+
+##SYNOPSIS
+          findsearch [options]
+          
+##DESCRIPTION
+
+##Options
+
+##AUTHOR
+
+##BUGS
